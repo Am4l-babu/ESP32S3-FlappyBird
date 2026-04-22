@@ -34,7 +34,7 @@
 Adafruit_SSD1306 display(SCREEN_W, SCREEN_H, &Wire, -1);
 
 // ── TOUCH PIN ──────────────────────────────────────────────────────────
-#define TOUCH_PIN     3   // TTP223 OUT → GPIO3 (D2)
+#define TOUCH_PIN     8   // TTP223 OUT → GPIO8 (D9)
 // TTP223 outputs HIGH when touched (default mode A)
 
 // ── SPEAKER I2S (MAX98357A) ────────────────────────────────────────────

@@ -114,7 +114,7 @@ XIAO ESP32-S3 PIN LAYOUT (Top View)
 |-----------------|----------|------|------------|--------------------------|
 | **OLED SDA**    | GPIO5    | 5    | D4         | I2C Data (0x3C address)  |
 | **OLED SCL**    | GPIO6    | 6    | D5         | I2C Clock                |
-| **TTP223 OUT**  | GPIO3    | 3    | D2         | Active HIGH on touch     |
+| **TTP223 OUT**  | GPIO8    | 8    | D9         | Active HIGH on touch     |
 | **MAX98357A DIN** | GPIO2   | 2    | D1         | I2S Data Out             |
 | **MAX98357A LRC** | GPIO4   | 4    | D3         | I2S Word Select (LEFT)   |
 | **MAX98357A BCLK** | GPIO7  | 7    | D8         | I2S Bit Clock            |
@@ -131,7 +131,7 @@ Xiao ESP32-S3     I2C Devices         I2S Audio
            │
   D4 (GPIO5)─→ SDA (OLED @ 0x3C)
   D5 (GPIO6)─→ SCL (OLED @ 0x3C)
-  D2 (GPIO3)─→ OUT (TTP223)
+  D9 (GPIO8)─→ OUT (TTP223)
   
   D1 (GPIO2)──→ DIN (MAX98357A)
   D3 (GPIO4)──→ LRC (MAX98357A)

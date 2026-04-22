@@ -37,7 +37,7 @@
   
 - ✅ Touch Input (TTP223 Capacitive Sensor)
   - Edge detection for single-press and hold flapping
-  - Non-blocking GPIO sampling on GPIO3
+  - Non-blocking GPIO sampling on GPIO8
 
 ### 4. **Build & Upload** ✓
 - ✅ Successful compilation: **325 KB firmware size**, **6.2% RAM usage**
@@ -117,11 +117,11 @@
 ```
 GPIO Assignments:
   GPIO2  (D1)  → MAX98357A DIN   (I2S data)
-  GPIO3  (D2)  → TTP223 OUT      (touch input)
   GPIO4  (D3)  → MAX98357A LRC   (I2S left/right)
   GPIO5  (D4)  → SSD1306 SDA     (I2C data)
   GPIO6  (D5)  → SSD1306 SCL     (I2C clock)
   GPIO7  (D8)  → MAX98357A BCLK  (I2S clock)
+  GPIO8  (D9)  → TTP223 OUT      (touch input)
   GND    (×2)  → Common ground
   5V     (opt) → External power
 ```

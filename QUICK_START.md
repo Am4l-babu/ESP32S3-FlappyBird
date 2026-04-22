@@ -39,7 +39,7 @@ Xiao ESP32-S3 → OLED SSD1306 (I2C @ 0x3C)
 └─ GND → GND
 
 Xiao ESP32-S3 → TTP223 Touch Sensor
-├─ D2 (GPIO3) → OUT
+├─ D9 (GPIO8) → OUT
 └─ GND → GND
 
 Xiao ESP32-S3 → MAX98357A Audio Amplifier
