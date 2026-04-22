@@ -138,17 +138,27 @@ int scoreTick = 0;
 struct Star { int x, y; int speed; } stars[20];
 
 // ══════════════════════════════════════════════════════════════════════
-//  HELPERS
+//  GAME CONSTANTS (MUST BE BEFORE HELPERS)
 // ══════════════════════════════════════════════════════════════════════
-void spawnPipe(int i, int sx) {
-  pipes[i] = { sx, (int)random(PIPE_GAP_HALF + 6, SCREEN_H - PIPE_GAP_HALF - 6), false };
-}
 #define PIPE_GAP_HALF 11
 #define PIPE_W        10
 #define PIPE_SPD       2
 #define BIRD_X        24
 #define GRAVITY     0.36f
 #define FLAP_V     -3.8f
+
+// ══════════════════════════════════════════════════════════════════════
+//  FORWARD DECLARATIONS
+// ══════════════════════════════════════════════════════════════════════
+void playReturnToTitleAnim();
+void bootSplash();
+
+// ══════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════════════════
+void spawnPipe(int i, int sx) {
+  pipes[i] = { sx, (int)random(PIPE_GAP_HALF + 6, SCREEN_H - PIPE_GAP_HALF - 6), false };
+}
 
 void initStars() {
   for (int i = 0; i < 20; i++)
