@@ -1,0 +1,61 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.platformio/
+.DS_Store
+*.pyc
+__pycache__/
+*.so
+
+# Build artifacts
+build/
+dist/
+*.o
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Documentation
+.doxygen/
+docs/html/
+docs/latex/
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Environment
+.env
+.env.local
+
+# Arduino/ESP-IDF specifics
+*.elf
+*.bin
+*.hex
+.pio/
+.pio/libdeps/
+.pio/build/
+.pio/cache/
+
+# Dependencies (let platformio manage them)
+lib_deps/
