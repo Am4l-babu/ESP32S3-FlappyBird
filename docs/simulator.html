@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FLAPPY BIRD — ESP32-S3 Touch Edition · Browser Simulator</title>
+<meta name="description" content="Interactive browser simulator of the Xiao ESP32-S3 Flappy Bird firmware — pixel-accurate OLED render, real physics, live parameter tuning.">
+<style>
+  :root{
+    --bg0:#05070a;
+    --bg1:#0a0f14;
+    --pcb:#0c3b2c;
+    --pcb-edge:#0f5c43;
+    --pcb-dark:#062018;
+    --gold:#e3bf62;
+    --copper:#c98a3f;
+    --cyan:#5eead4;
+    --cyan-dim:#2d7a6d;
+    --amber:#ffb454;
+    --oled:#eafff6;
+    --danger:#ff6767;
+    --text:#d7ece5;
+    --muted:#7e9992;
+    --panel:#0d1420;
+    --panel2:#111a29;
+    --border:#1d2b36;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 120% 80% at 50% -10%, #0f2e26 0%, var(--bg0) 55%),
+      var(--bg0);
+    color:var(--text);
+    font-family:'Segoe UI', ui-monospace, Menlo, Consolas, monospace;
+    min-height:100vh;
+    padding:28px 14px 60px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    overflow-x:hidden;
+  }
+  /* ---------- background starfield ---------- */
+  .bg-stars{
+    position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.55;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, #fff 100%, transparent),
+      radial-gradient(1px 1px at 70% 60%, #fff 100%, transparent),
+      radial-gradient(1px 1px at 40% 80%, #fff 100%, transparent),
+      radial-gradient(1.5px 1.5px at 85% 20%, #fff 100%, transparent),
+      radial-gradient(1px 1px at 10% 70%, #fff 100%, transparent),
+      radial-gradient(1px 1px at 60% 10%, #fff 100%, transparent),
+      radial-gradient(1.5px 1.5px at 90% 85%, #fff 100%, transparent),
+      radial-gradient(1px 1px at 30% 50%, #fff 100%, transparent);
+    background-size:600px 600px;
+    animation:drift 90s linear infinite;
+  }
+  @keyframes drift{ from{background-position:0 0;} to{background-position:-600px 300px;} }
+
+  /* ---------- header ---------- */
+  header{ text-align:center; max-width:760px; margin-bottom:22px; }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--cyan); background:rgba(94,234,212,.08);
+    border:1px solid rgba(94,234,212,.3); border-radius:999px;
+    padding:5px 12px; margin-bottom:14px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+  h1{
+    font-size:clamp(28px,5vw,44px); margin:0 0 8px;
+    letter-spacing:.02em;
+    background:linear-gradient(180deg,#fff, var(--cyan) 120%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 40px rgba(94,234,212,.25);
+    font-family: 'Trebuchet MS', ui-sans-serif, system-ui, sans-serif;
+    font-weight:800;
+  }
+  header p{ color:var(--muted); font-size:14.5px; line-height:1.6; margin:0 auto; max-width:560px; }
+  header p code{ color:var(--amber); background:rgba(255,180,84,.08); padding:1px 6px; border-radius:5px; font-size:12.5px; }
+
+  /* ---------- layout ---------- */
+  .stage{ display:flex; gap:26px; flex-wrap:wrap; justify-content:center; align-items:flex-start; width:100%; max-width:1080px; }
+
+  /* ---------- the PCB / device mockup ---------- */
+  .board{
+    position:relative;
+    background:
+      radial-gradient(circle at 15% 10%, var(--pcb-edge), var(--pcb) 55%, var(--pcb-dark) 100%);
+    border-radius:22px;
+    padding:26px 22px 20px;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.04),
+      0 25px 60px -20px rgba(0,0,0,.75),
+      inset 0 0 60px rgba(0,0,0,.35);
+    width:392px;
+    max-width:92vw;
+    flex-shrink:0;
+  }
+  .board::before{ /* silkscreen traces */
+    content:''; position:absolute; inset:10px;
+    border-radius:14px;
+    background-image:
+      linear-gradient(90deg, transparent 96%, rgba(227,191,98,.12) 96%),
+      linear-gradient(0deg, transparent 94%, rgba(227,191,98,.10) 94%);
+    background-size:22px 22px;
+    pointer-events:none;
+    opacity:.5;
+  }
+  .board-label{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:9.5px; letter-spacing:.14em; color:var(--gold); opacity:.8;
+    margin-bottom:14px; text-transform:uppercase; position:relative;
+  }
+  .board-label b{ color:var(--cyan); font-weight:700; }
+
+  .oled-bezel{
+    position:relative;
+    background:#000;
+    border-radius:8px;
+    padding:14px;
+    box-shadow:
+      0 0 0 3px #1a1f1c,
+      0 0 0 5px #333b36,
+      inset 0 0 18px rgba(0,0,0,.9);
+    margin:0 auto;
+  }
+  .oled-screen-wrap{
+    position:relative;
+    width:100%;
+    aspect-ratio:128/64;
+    background:#000;
+    overflow:hidden;
+    border-radius:2px;
+    cursor:pointer;
+  }
+  canvas#game{
+    position:absolute; inset:0; width:100%; height:100%;
+    image-rendering:pixelated; image-rendering:crisp-edges;
+    filter: drop-shadow(0 0 5px rgba(234,255,246,.35));
+  }
+  .scanlines{
+    position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(
+      to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 1px, rgba(0,0,0,.18) 2px, rgba(0,0,0,0) 3px
+    );
+    mix-blend-mode:multiply;
+  }
+  .glass{
+    position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(155deg, rgba(255,255,255,.08), rgba(255,255,255,0) 35%);
+  }
+  .oled-tag{ text-align:center; font-size:9px; letter-spacing:.16em; color:#4f6a63; margin-top:8px; }
+
+  /* controls row under the board */
+  .controls-row{ display:flex; align-items:center; justify-content:center; gap:22px; margin-top:20px; }
+  .touch-pad{
+    width:66px; height:66px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #223, #0c1116 70%);
+    border:2px solid #364b42;
+    color:var(--cyan); font-size:9.5px; letter-spacing:.12em; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:none;
+    box-shadow:0 4px 10px rgba(0,0,0,.5), inset 0 0 0 1px rgba(94,234,212,.15);
+    transition:transform .08s ease, box-shadow .15s ease;
+  }
+  .touch-pad.active{
+    transform:scale(.92);
+    box-shadow:0 0 0 6px rgba(94,234,212,.18), 0 0 22px rgba(94,234,212,.55), inset 0 0 12px rgba(94,234,212,.4);
+    color:#fff;
+  }
+  .pins{ display:flex; flex-direction:column; gap:9px; font-size:9px; color:var(--muted); }
+  .pin{ display:flex; align-items:center; gap:6px; }
+  .pin .led{
+    width:8px; height:8px; border-radius:50%;
+    background:#1a2a25; box-shadow:inset 0 0 2px rgba(0,0,0,.8);
+    transition:background .1s, box-shadow .1s;
+  }
+  .pin .led.gpio8.on{ background:var(--cyan); box-shadow:0 0 8px var(--cyan), 0 0 16px var(--cyan); }
+  .pin .led.i2s.on{ background:var(--amber); box-shadow:0 0 8px var(--amber), 0 0 16px var(--amber); }
+  .pin .led.i2c{ background:#3a5a54; }
+  .speaker{
+    width:44px; height:44px; border-radius:50%;
+    background:
+      radial-gradient(circle at 50% 50%, #1a2420 0 8px, transparent 9px),
+      repeating-radial-gradient(circle, #17201c 0 2px, #101512 2px 4px);
+    border:2px solid #2c3b35;
+  }
+
+  /* ---------- side panel ---------- */
+  .side-panel{
+    width:340px; max-width:92vw;
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .card{
+    background:linear-gradient(180deg, var(--panel2), var(--panel));
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px 18px;
+  }
+  .card h3{
+    margin:0 0 12px; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--cyan); display:flex; align-items:center; gap:8px;
+  }
+  .card h3::before{ content:''; width:5px; height:5px; background:var(--cyan); border-radius:1px; box-shadow:0 0 6px var(--cyan); }
+
+  .stat-grid{ display:flex; gap:10px; }
+  .stat{
+    flex:1; text-align:center; background:rgba(94,234,212,.04);
+    border:1px solid rgba(94,234,212,.15); border-radius:10px; padding:10px 4px;
+  }
+  .stat .num{ font-size:26px; font-weight:800; color:var(--oled); font-family: ui-monospace, Menlo, monospace; letter-spacing:.02em; text-shadow:0 0 12px rgba(234,255,246,.25);}
+  .stat .lbl{ font-size:9.5px; letter-spacing:.12em; color:var(--muted); margin-top:2px; text-transform:uppercase;}
+
+  .btn-row{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  button.chip{
+    flex:1; min-width:90px;
+    background:var(--panel2); color:var(--text);
+    border:1px solid var(--border); border-radius:9px;
+    padding:9px 10px; font-size:12px; letter-spacing:.03em;
+    cursor:pointer; font-family:inherit; font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    transition:border-color .15s, color .15s, background .15s;
+  }
+  button.chip:hover{ border-color:var(--cyan); color:var(--cyan); }
+  button.chip.primary{ background:linear-gradient(180deg,#1a6b57,#0f4437); border-color:#1f7a63; color:#eafff6; }
+  button.chip.primary:hover{ filter:brightness(1.12); }
+  button.chip.danger:hover{ border-color:var(--danger); color:var(--danger); }
+  button.chip[aria-pressed="true"]{ border-color:var(--amber); color:var(--amber); }
+
+  .hint{ font-size:12px; color:var(--muted); line-height:1.7; margin:0; }
+  .hint kbd{
+    background:#1a2634; border:1px solid #2a3b4c; border-bottom-width:2px;
+    border-radius:5px; padding:1px 6px; font-size:11px; color:var(--oled); font-family:inherit;
+  }
+
+  /* sliders */
+  .slider-row{ margin-bottom:13px; }
+  .slider-row:last-child{ margin-bottom:0; }
+  .slider-row .top{ display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:6px; }
+  .slider-row .top span:first-child{ color:var(--text); }
+  .slider-row .top span.val{ color:var(--amber); font-family:ui-monospace,monospace; }
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:4px; border-radius:3px;
+    background:linear-gradient(90deg, var(--cyan-dim), var(--border));
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:15px; height:15px; border-radius:50%;
+    background:var(--cyan); box-shadow:0 0 8px rgba(94,234,212,.7), 0 0 0 3px rgba(94,234,212,.15);
+    cursor:pointer; margin-top:-1px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:15px; height:15px; border-radius:50%; border:none;
+    background:var(--cyan); box-shadow:0 0 8px rgba(94,234,212,.7);
+    cursor:pointer;
+  }
+
+  .badge-row{ display:flex; flex-wrap:wrap; gap:6px; }
+  .badge{
+    font-size:10px; letter-spacing:.04em; color:var(--muted);
+    border:1px solid var(--border); border-radius:999px; padding:4px 9px;
+    display:flex; align-items:center; gap:5px;
+  }
+  .badge b{ color:var(--oled); font-weight:700; }
+
+  footer{
+    margin-top:36px; text-align:center; color:var(--muted); font-size:12px; max-width:640px; line-height:1.9;
+  }
+  footer a{ color:var(--cyan); text-decoration:none; border-bottom:1px dotted rgba(94,234,212,.4); }
+  footer a:hover{ color:#fff; }
+  .fine{ font-size:10.5px; color:#4f6a63; margin-top:6px; }
+
+  @media (max-width:760px){
+    .stage{ flex-direction:column; align-items:center; }
+    .board{ width:100%; }
+    .side-panel{ width:100%; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-stars" aria-hidden="true"></div>
+
+<header>
+  <div class="eyebrow"><span class="dot"></span> XIAO ESP32-S3 · SSD1306 · TTP223 · MAX98357A</div>
+  <h1>FLAPPY BIRD — Touch Edition</h1>
+  <p>A pixel-faithful <b>browser simulator</b> of the real firmware in <code>src/main.cpp</code> — same physics, same states, same 128×64 OLED look. Tap the touch pad (or press <code>Space</code>) to flap.</p>
+</header>
+
+<div class="stage">
+
+  <!-- ============ DEVICE MOCKUP ============ -->
+  <div class="board">
+    <div class="board-label"><span>XIAO-ESP32-S3 · REV A</span><b>FLAPPY-FW v1.0.0</b></div>
+
+    <div class="oled-bezel">
+      <div class="oled-screen-wrap" id="screenWrap">
+        <canvas id="game" width="128" height="64"></canvas>
+        <div class="scanlines"></div>
+        <div class="glass"></div>
+      </div>
+    </div>
+    <div class="oled-tag">SSD1306 · 128×64 · I2C 0x3C</div>
+
+    <div class="controls-row">
+      <div class="pins">
+        <div class="pin"><span class="led gpio8" id="ledTouch"></span> GPIO8 · TOUCH</div>
+        <div class="pin"><span class="led i2c on" style="opacity:.9"></span> GPIO5/6 · I2C</div>
+        <div class="pin"><span class="led i2s" id="ledAudio"></span> I2S · AUDIO</div>
+      </div>
+      <button class="touch-pad" id="touchPad" aria-label="Touch sensor — flap">TOUCH</button>
+      <div class="speaker" title="MAX98357A + 4Ω speaker"></div>
+    </div>
+  </div>
+
+  <!-- ============ SIDE PANEL ============ -->
+  <div class="side-panel">
+
+    <div class="card">
+      <h3>Live Stats</h3>
+      <div class="stat-grid">
+        <div class="stat"><div class="num" id="statScore">0</div><div class="lbl">Score</div></div>
+        <div class="stat"><div class="num" id="statBest">0</div><div class="lbl">Best</div></div>
+        <div class="stat"><div class="num" id="statState">TITLE</div><div class="lbl">State</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="chip primary" id="btnFlap">⤒ Flap</button>
+        <button class="chip" id="btnMute">🔊 Sound</button>
+        <button class="chip danger" id="btnReset">↺ Reset Best</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>How to Play</h3>
+      <p class="hint">
+        <kbd>Space</kbd> / <kbd>Click</kbd> the OLED, or tap the <b>TOUCH</b> pad to flap.<br>
+        One flap per press — exactly like the real TTP223 rising-edge detector. Clear the pipe gaps, don't hit the floor or ceiling caps.<br>
+        Idle 5s on Title/Score → the firmware plays its wipe-and-spiral transition back to the title screen.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>Physics Tuning <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;font-size:10.5px;">(live, matches <code style="color:var(--amber)">#define</code>s)</span></h3>
+
+      <div class="slider-row">
+        <div class="top"><span>GRAVITY</span><span class="val" id="vGravity">0.36</span></div>
+        <input type="range" id="sGravity" min="0.15" max="0.60" step="0.01" value="0.36">
+      </div>
+      <div class="slider-row">
+        <div class="top"><span>FLAP_V</span><span class="val" id="vFlap">-3.80</span></div>
+        <input type="range" id="sFlap" min="-6.0" max="-2.0" step="0.1" value="-3.8">
+      </div>
+      <div class="slider-row">
+        <div class="top"><span>PIPE_GAP_HALF</span><span class="val" id="vGap">11</span></div>
+        <input type="range" id="sGap" min="6" max="18" step="1" value="11">
+      </div>
+      <div class="slider-row">
+        <div class="top"><span>PIPE_SPD</span><span class="val" id="vSpd">2</span></div>
+        <input type="range" id="sSpd" min="1" max="5" step="1" value="2">
+      </div>
+      <div class="btn-row">
+        <button class="chip" id="btnDefaults">↺ Firmware Defaults</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Wiring Reference</h3>
+      <div class="badge-row">
+        <span class="badge">SDA <b>D4</b></span>
+        <span class="badge">SCL <b>D5</b></span>
+        <span class="badge">TOUCH <b>D9</b></span>
+        <span class="badge">I2S DIN <b>D1</b></span>
+        <span class="badge">I2S LRC <b>D3</b></span>
+        <span class="badge">I2S BCLK <b>D8</b></span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  This is a browser-only re-creation for preview &amp; tuning — the real game runs bare-metal on the Xiao ESP32-S3.<br>
+  Full source, wiring diagram &amp; build instructions in the <a href="../README.md">project README</a>.
+  <div class="fine">High score is saved to this browser only (the hardware resets it on power-cycle unless you add EEPROM persistence — see README § Customization).</div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  // ══════════════════════════════════════════════════════════════════
+  //  CONFIG — mirrors the #define block in src/main.cpp
+  // ══════════════════════════════════════════════════════════════════
+  const SCREEN_W = 128, SCREEN_H = 64;
+  const PIPE_W = 10, BIRD_X = 24, MAX_PIPES = 3;
+  const IDLE_TIMEOUT_MS = 5000;
+
+  const cfg = {
+    GRAVITY: 0.36,
+    FLAP_V: -3.8,
+    PIPE_GAP_HALF: 11,
+    PIPE_SPD: 2
+  };
+  const DEFAULTS = { GRAVITY:0.36, FLAP_V:-3.8, PIPE_GAP_HALF:11, PIPE_SPD:2 };
+
+  // ══════════════════════════════════════════════════════════════════
+  //  CANVAS
+  // ══════════════════════════════════════════════════════════════════
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  const ON = '#eafff6';
+
+  function clear(){
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
+    ctx.fillStyle = ON;
+  }
+  function px(x,y){ ctx.fillRect(Math.round(x), Math.round(y), 1, 1); }
+  function rectFill(x,y,w,h){ ctx.fillRect(Math.round(x), Math.round(y), Math.max(1,Math.round(w)), Math.max(1,Math.round(h))); }
+  function rectOutline(x,y,w,h){
+    ctx.fillRect(x,y,w,1); ctx.fillRect(x,y+h-1,w,1);
+    ctx.fillRect(x,y,1,h); ctx.fillRect(x+w-1,y,1,h);
+  }
+  function hline(x,y,w){ ctx.fillRect(x,y,w,1); }
+  function vline(x,y,h){ ctx.fillRect(x,y,1,h); }
+
+  let pixelFont = null;
+  function text(str, x, y, size){
+    ctx.save();
+    ctx.fillStyle = ON;
+    ctx.font = (size===2 ? '900 12px' : '900 8px') + ' "Courier New", monospace';
+    ctx.textBaseline = 'top';
+    ctx.translate(x, y - (size===2? 1:0));
+    ctx.scale(size===2?1.02:1, 1);
+    ctx.fillText(str, 0, 0);
+    ctx.restore();
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  AUDIO — Web Audio re-implementation of the I2S tone() engine
+  // ══════════════════════════════════════════════════════════════════
+  let actx = null;
+  let muted = localStorage.getItem('fb_muted') === '1';
+
+  function ensureAudio(){
+    if (!actx){
+      try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ actx = null; }
+    }
+    if (actx && actx.state === 'suspended') actx.resume();
+  }
+
+  function playTone(freq, ms, vol, startDelay){
+    if (muted || !actx) return;
+    const t0 = actx.currentTime + (startDelay||0)/1000;
+    const dur = ms/1000;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0, t0);
+    const att = Math.min(0.003, dur*0.3);
+    const rel = Math.min(0.008, dur*0.4);
+    gain.gain.linearRampToValueAtTime(vol, t0+att);
+    gain.gain.setValueAtTime(vol, Math.max(t0+att, t0+dur-rel));
+    gain.gain.linearRampToValueAtTime(0, t0+dur);
+    osc.connect(gain); gain.connect(actx.destination);
+    osc.start(t0); osc.stop(t0+dur+0.02);
+    flashLed('ledAudio');
+  }
+
+  function sfxFlap(){ playTone(480, 28, 0.18, 0); }
+  function sfxScore(){ playTone(880, 55, 0.28, 0); playTone(1320, 70, 0.28, 65); }
+  function sfxDead(){ let d=0; for(let f=550; f>180; f-=25){ playTone(f, 20, 0.30, d); d+=20; } }
+  function sfxJingle(){ playTone(523,80,0.25,0); playTone(659,80,0.25,80); playTone(784,80,0.25,160); playTone(1047,140,0.25,240); }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  LEDs
+  // ══════════════════════════════════════════════════════════════════
+  function flashLed(id){
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('on');
+    clearTimeout(el._t);
+    el._t = setTimeout(()=>el.classList.remove('on'), 160);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  GAME STATE
+  // ══════════════════════════════════════════════════════════════════
+  const ST = { TITLE:0, PLAYING:1, DEAD:2, SCORE:3, TRANSITION:4 };
+  let gameState = ST.TITLE;
+
+  let birdY=32, birdVel=0, birdFrame=0;
+  let pipes = [];
+  let score = 0;
+  let hiScore = parseInt(localStorage.getItem('fb_best')||'0', 10) || 0;
+  let frameCount = 0;
+  let lastActivity = performance.now();
+
+  let particles = [];
+  let deadAnimFrame = 0, deadAnimDone = false;
+  let scoreTick = 0;
+  let stars = [];
+
+  // input edge-detection (mirrors TTP223 rising-edge sampling)
+  let held = false, pressQueue = 0;
+
+  function rand(min, max){ return Math.floor(Math.random()*(max-min))+min; }
+  function clampN(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function mapRange(v,a,b,c,d){ return c + (d-c) * ((v-a)/(b-a)); }
+  function now(){ return performance.now(); }
+
+  function spawnPipe(i, sx){
+    pipes[i] = { x: sx, gapY: rand(cfg.PIPE_GAP_HALF+6, SCREEN_H-cfg.PIPE_GAP_HALF-6), scored:false };
+  }
+  function initStars(){
+    stars = [];
+    for (let i=0;i<20;i++) stars.push({ x:rand(0,128), y:rand(0,64), speed:rand(1,4) });
+  }
+  function initParticles(bx,by){
+    particles = [];
+    for (let i=0;i<12;i++){
+      const ang = i*(2*Math.PI/12);
+      const spd = rand(8,20)*0.12;
+      particles.push({ x:bx, y:by, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, life:18 });
+    }
+  }
+  function startGame(){
+    birdY = SCREEN_H/2; birdVel=0; birdFrame=0; score=0;
+    for (let i=0;i<MAX_PIPES;i++) spawnPipe(i, SCREEN_W + i*(SCREEN_W/MAX_PIPES+4));
+    gameState = ST.PLAYING;
+    lastActivity = now();
+    updateHud();
+  }
+
+  const SPR_UP   = [0x0E,0x1F,0x1E,0x1F,0x0C];
+  const SPR_DOWN = [0x0C,0x1F,0x1E,0x1F,0x0E];
+  function drawBird(bx,by,fr){
+    const s = (fr%2===0) ? SPR_UP : SPR_DOWN;
+    for (let r=0;r<5;r++)
+      for (let c=0;c<5;c++)
+        if (s[r] & (0x10>>c)) if (!(r===1&&c===3)) px(bx+c, by+r);
+  }
+  function drawPipe(pxp, gapY){
+    const top = gapY - cfg.PIPE_GAP_HALF, bot = gapY + cfg.PIPE_GAP_HALF;
+    rectFill(pxp, 0, PIPE_W, top);
+    rectFill(pxp-1, top-4, PIPE_W+2, 4);
+    rectFill(pxp, bot, PIPE_W, SCREEN_H-bot);
+    rectFill(pxp-1, bot, PIPE_W+2, 4);
+  }
+  function hitsPipe(p){
+    const bx1=BIRD_X, bx2=BIRD_X+4, by1=birdY, by2=birdY+4;
+    const top=p.gapY-cfg.PIPE_GAP_HALF, bot=p.gapY+cfg.PIPE_GAP_HALF;
+    if (bx2 < p.x || bx1 > p.x+PIPE_W) return false;
+    return (by1 < top || by2 > bot);
+  }
+
+  function updateStars(){
+    for (const s of stars){
+      s.x -= s.speed;
+      if (s.x < 0){ s.x = 127; s.y = rand(0,64); }
+      const show = (s.speed===1) ? true : (Math.floor(frameCount/4)%2===0);
+      if (show) px(s.x, s.y);
+    }
+  }
+
+  function drawTitle(){
+    clear();
+    updateStars();
+    const bfly = 20 + 5*Math.sin(frameCount*0.09);
+    drawBird(10, bfly, Math.floor(frameCount/6));
+    text('FLAPPY', 34, 4, 2);
+    text('B I R D', 38, 23, 1);
+    for (let x=36; x<92; x+=4){
+      const xv = x + 2*Math.sin(x*0.3 + frameCount*0.15);
+      px(xv, 32);
+    }
+    if (Math.floor(frameCount/18)%2===0) text('[ TOUCH TO PLAY ]', 28, 42, 1);
+
+    const idle = now() - lastActivity;
+    if (idle > 2000){
+      let barW = mapRange(idle, 2000, IDLE_TIMEOUT_MS, 64, 0);
+      barW = clampN(barW, 0, 64);
+      rectOutline(32,56,64,4); rectFill(32,56,barW,4);
+      if (barW < 20) text('zzz', 54, 55, 1);
+    } else {
+      // nothing
+    }
+    if (idle > IDLE_TIMEOUT_MS) lastActivity = now();
+  }
+
+  function die(){
+    initParticles(BIRD_X+2, birdY+2);
+    deadAnimFrame = 0; deadAnimDone = false;
+    sfxDead();
+    if (score > hiScore){ hiScore = score; localStorage.setItem('fb_best', String(hiScore)); }
+    gameState = ST.DEAD;
+    lastActivity = now();
+    updateHud();
+  }
+
+  function updatePlaying(edge){
+    if (edge){
+      birdVel = cfg.FLAP_V; birdFrame++; sfxFlap(); lastActivity = now();
+      flashLed('ledTouch');
+    }
+    birdVel += cfg.GRAVITY;
+    birdVel = clampN(birdVel, -6.5, 7.0);
+    birdY += birdVel;
+
+    if (birdY < 0){ birdY = 0; birdVel = 0; }
+    if (birdY > SCREEN_H - 5){
+      birdY = SCREEN_H - 5;
+      die();
+      return;
+    }
+
+    for (let i=0;i<MAX_PIPES;i++){
+      pipes[i].x -= cfg.PIPE_SPD;
+      if (pipes[i].x < -PIPE_W-2) spawnPipe(i, SCREEN_W+4);
+      if (!pipes[i].scored && pipes[i].x + PIPE_W < BIRD_X){
+        pipes[i].scored = true; score++; sfxScore(); updateHud();
+      }
+      if (hitsPipe(pipes[i])){ die(); return; }
+    }
+
+    clear();
+    for (let x=0; x<SCREEN_W; x+=8){
+      const dx = (((x - frameCount*cfg.PIPE_SPD) % 128) + 128) % 128;
+      hline(dx, SCREEN_H-1, 4);
+    }
+    for (let i=0;i<MAX_PIPES;i++) drawPipe(pipes[i].x, pipes[i].gapY);
+    drawBird(BIRD_X, birdY, birdFrame);
+    text(String(score), 2, 2, 1);
+
+    const vy = mapRange(clampN(-birdVel,-7,7), -7, 7, 0, 20);
+    rectOutline(123,2,4,20);
+    rectFill(123, 2+(20-vy), 4, vy);
+  }
+
+  function updateDead(edge){
+    clear();
+    let anyAlive = false;
+    for (const p of particles){
+      if (p.life <= 0) continue;
+      anyAlive = true;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life--;
+      if (p.x>=0 && p.x<128 && p.y>=0 && p.y<64) px(p.x,p.y);
+      if (p.life > 2){
+        const tx=p.x-p.vx, ty=p.y-p.vy;
+        if (tx>=0&&tx<128&&ty>=0&&ty<64) px(tx,ty);
+      }
+    }
+    for (let i=0;i<MAX_PIPES;i++) drawPipe(pipes[i].x, pipes[i].gapY);
+    deadAnimFrame++;
+
+    if (!anyAlive || deadAnimFrame > 30){
+      deadAnimDone = true;
+      if (Math.floor(deadAnimFrame/8)%2===0) text('DEAD!', 28, 22, 2);
+      text('TOUCH for score', 22, 44, 1);
+    }
+
+    if (edge && deadAnimDone){
+      lastActivity = now(); scoreTick = 0; gameState = ST.SCORE;
+      return;
+    }
+    if (now() - lastActivity > IDLE_TIMEOUT_MS){
+      scoreTick = 0; gameState = ST.SCORE; lastActivity = now();
+    }
+  }
+
+  function updateScore(edge){
+    clear();
+    scoreTick++;
+    updateStars();
+    const displayed = Math.min(score, Math.floor(scoreTick/3));
+
+    rectOutline(56,4,16,12); rectFill(58,6,12,8);
+    hline(52,16,24); vline(64,16,4); hline(60,20,8);
+
+    const sw = String(score).length * 12;
+    text(String(displayed), (SCREEN_W-sw)/2, 26, 2);
+
+    text('BEST: ' + hiScore, 18, 44, 1);
+
+    if (score > 0 && score >= hiScore && Math.floor(scoreTick/10)%2===0) text('* NEW BEST *', 36, 54, 1);
+    if (Math.floor(scoreTick/14)%2===0) text('[ TOUCH TO RETRY ]', 22, 56, 1);
+
+    const idle = now() - lastActivity;
+    if (idle > 2000){
+      let bw = mapRange(idle, 2000, IDLE_TIMEOUT_MS, 90, 0);
+      bw = clampN(bw, 0, 90);
+      rectOutline(19,35,90,3); rectFill(19,35,bw,3);
+    }
+
+    if (edge){
+      lastActivity = now();
+      startGame();
+      return;
+    }
+    if (now() - lastActivity > IDLE_TIMEOUT_MS){
+      beginTransition();
+      lastActivity = now();
+    }
+  }
+
+  // ── Return-to-title transition (wipe → spiral → slide) ──────────────
+  let trans = { phase:0, i:0 };
+  function beginTransition(){ gameState = ST.TRANSITION; trans = { phase:0, i:0 }; }
+  function transitionInterval(){
+    if (trans.phase===0) return 12;
+    if (trans.phase===1) return 14;
+    if (trans.phase===2) return 20;
+    return 25;
+  }
+  function stepTransition(){
+    if (trans.phase===0){ // wipe
+      const y = trans.i*2;
+      rectFill(0,0,SCREEN_W,y);
+      trans.i++;
+      if (y >= SCREEN_H){ trans.phase=1; trans.i=0; }
+      return;
+    }
+    if (trans.phase===1){ // spiral
+      clear();
+      const r = trans.i;
+      const cx=64, cy=32, ang=r*0.25, rad=r*0.7;
+      for (let s=0;s<6;s++){
+        const a2 = ang + s*(Math.PI/3);
+        const sx = cx+Math.cos(a2)*rad, sy = cy+Math.sin(a2)*rad;
+        if (sx>=0&&sx<128&&sy>=0&&sy<64) px(sx,sy);
+        const ix = cx+Math.cos(a2)*rad*0.4, iy = cy+Math.sin(a2)*rad*0.4;
+        if (ix>=0&&ix<128&&iy>=0&&iy<64) px(ix,iy);
+      }
+      trans.i++;
+      if (trans.i >= 90){ trans.phase=2; trans.i=-80; }
+      return;
+    }
+    if (trans.phase===2){ // slide
+      clear();
+      text('FLAPPY', 34+trans.i, 20, 2);
+      trans.i += 4;
+      if (trans.i > 0){ trans.phase=3; trans.i=0; }
+      return;
+    }
+    // phase 3: brief hold then done
+    trans.i++;
+    if (trans.i > 8){
+      initStars();
+      gameState = ST.TITLE;
+      lastActivity = now();
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  SCHEDULER  (mirrors delay(20/25/28) after each loop() branch)
+  // ══════════════════════════════════════════════════════════════════
+  function intervalFor(){
+    switch(gameState){
+      case ST.TITLE: return 28;
+      case ST.PLAYING: return 20;
+      case ST.DEAD: return 20;
+      case ST.SCORE: return 25;
+      case ST.TRANSITION: return transitionInterval();
+      default: return 25;
+    }
+  }
+
+  function step(){
+    frameCount++;
+    const edge = pressQueue > 0;
+    if (edge) pressQueue--;
+
+    switch(gameState){
+      case ST.TITLE:
+        if (edge){ lastActivity = now(); startGame(); }
+        else drawTitle();
+        break;
+      case ST.PLAYING: updatePlaying(edge); break;
+      case ST.DEAD: updateDead(edge); break;
+      case ST.SCORE: updateScore(edge); break;
+      case ST.TRANSITION: stepTransition(); break;
+    }
+    updateHud();
+  }
+
+  let acc = 0, lastTs = 0;
+  function loop(ts){
+    requestAnimationFrame(loop);
+    if (!lastTs) lastTs = ts;
+    let dt = ts - lastTs; lastTs = ts;
+    if (dt > 250) dt = 250; // tab was backgrounded — don't spiral
+    acc += dt;
+    const iv = intervalFor();
+    let guard = 0;
+    while (acc >= iv && guard < 8){
+      step(); acc -= iv; guard++;
+      if (intervalFor() !== iv) break; // state changed mid-catchup
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  HUD / UI wiring
+  // ══════════════════════════════════════════════════════════════════
+  const statScore = document.getElementById('statScore');
+  const statBest  = document.getElementById('statBest');
+  const statState = document.getElementById('statState');
+  const stateNames = ['TITLE','PLAYING','DEAD','SCORE','TRANSITION'];
+
+  function updateHud(){
+    statScore.textContent = score;
+    statBest.textContent = hiScore;
+    statState.textContent = stateNames[gameState];
+  }
+
+  function requestFlap(){
+    ensureAudio();
+    if (!held) pressQueue++; // edge-triggered latch — survives clicks shorter than one frame
+    held = true;
+  }
+  function releaseFlap(){ held = false; }
+
+  const pad = document.getElementById('touchPad');
+  const wrap = document.getElementById('screenWrap');
+
+  [pad, wrap].forEach(el=>{
+    el.addEventListener('pointerdown', (e)=>{ e.preventDefault(); requestFlap(); pad.classList.add('active'); });
+    el.addEventListener('pointerup',   ()=>{ releaseFlap(); pad.classList.remove('active'); });
+    el.addEventListener('pointerleave',()=>{ releaseFlap(); pad.classList.remove('active'); });
+    el.addEventListener('pointercancel',()=>{ releaseFlap(); pad.classList.remove('active'); });
+  });
+
+  document.getElementById('btnFlap').addEventListener('click', ()=>{
+    requestFlap(); pad.classList.add('active');
+    setTimeout(()=>{ releaseFlap(); pad.classList.remove('active'); }, 90);
+  });
+
+  window.addEventListener('keydown', (e)=>{
+    if (e.code==='Space' || e.code==='Enter' || e.code==='ArrowUp'){
+      e.preventDefault();
+      requestFlap(); pad.classList.add('active');
+    }
+  });
+  window.addEventListener('keyup', (e)=>{
+    if (e.code==='Space' || e.code==='Enter' || e.code==='ArrowUp'){
+      releaseFlap(); pad.classList.remove('active');
+    }
+  });
+
+  const btnMute = document.getElementById('btnMute');
+  function syncMuteBtn(){
+    btnMute.textContent = muted ? '🔇 Sound' : '🔊 Sound';
+    btnMute.setAttribute('aria-pressed', muted ? 'true' : 'false');
+  }
+  syncMuteBtn();
+  btnMute.addEventListener('click', ()=>{
+    muted = !muted;
+    localStorage.setItem('fb_muted', muted?'1':'0');
+    syncMuteBtn();
+    ensureAudio();
+    if (!muted) sfxFlap();
+  });
+
+  document.getElementById('btnReset').addEventListener('click', ()=>{
+    hiScore = 0;
+    localStorage.setItem('fb_best','0');
+    updateHud();
+  });
+
+  // ── physics sliders ──────────────────────────────────────────────
+  function bindSlider(id, valId, key, fmt){
+    const input = document.getElementById(id);
+    const out = document.getElementById(valId);
+    input.value = cfg[key];
+    out.textContent = fmt(cfg[key]);
+    input.addEventListener('input', ()=>{
+      cfg[key] = parseFloat(input.value);
+      out.textContent = fmt(cfg[key]);
+    });
+  }
+  bindSlider('sGravity','vGravity','GRAVITY', v=>v.toFixed(2));
+  bindSlider('sFlap','vFlap','FLAP_V', v=>v.toFixed(2));
+  bindSlider('sGap','vGap','PIPE_GAP_HALF', v=>String(Math.round(v)));
+  bindSlider('sSpd','vSpd','PIPE_SPD', v=>String(Math.round(v)));
+
+  document.getElementById('btnDefaults').addEventListener('click', ()=>{
+    Object.assign(cfg, DEFAULTS);
+    document.getElementById('sGravity').value = cfg.GRAVITY;
+    document.getElementById('sFlap').value = cfg.FLAP_V;
+    document.getElementById('sGap').value = cfg.PIPE_GAP_HALF;
+    document.getElementById('sSpd').value = cfg.PIPE_SPD;
+    document.getElementById('vGravity').textContent = cfg.GRAVITY.toFixed(2);
+    document.getElementById('vFlap').textContent = cfg.FLAP_V.toFixed(2);
+    document.getElementById('vGap').textContent = cfg.PIPE_GAP_HALF;
+    document.getElementById('vSpd').textContent = cfg.PIPE_SPD;
+  });
+
+  // ══════════════════════════════════════════════════════════════════
+  //  BOOT
+  // ══════════════════════════════════════════════════════════════════
+  initStars();
+  clear();
+  updateHud();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
