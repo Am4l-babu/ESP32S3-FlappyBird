@@ -5,11 +5,41 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-ESP32--S3-red)
+[![Play the Simulator](https://img.shields.io/badge/▶_PLAY_IN_BROWSER-simulator-5eead4?style=for-the-badge)](https://htmlpreview.github.io/?https://github.com/Am4l-babu/ESP32S3-FlappyBird/blob/main/docs/simulator.html)
+
+---
+
+## 🕹️ Play It In Your Browser
+
+No hardware on your desk yet? Flap around in a **pixel-accurate simulator** of the real firmware — same 128×64 OLED look, same physics, same state machine (Title → Playing → Dead → Score), plus live sliders to tune `GRAVITY`, `FLAP_V`, pipe gap and speed right from the UI.
+
+<p align="center">
+  <a href="https://htmlpreview.github.io/?https://github.com/Am4l-babu/ESP32S3-FlappyBird/blob/main/docs/simulator.html">
+    <img src="docs/simulator-preview.png" alt="ESP32-S3 Flappy Bird browser simulator — animated OLED title screen on a Xiao ESP32-S3 device mockup with a capacitive touch pad" width="640">
+  </a>
+</p>
+
+<p align="center">
+  <b><a href="https://htmlpreview.github.io/?https://github.com/Am4l-babu/ESP32S3-FlappyBird/blob/main/docs/simulator.html">▶ Launch the Simulator</a></b>
+  &nbsp;·&nbsp;
+  <a href="docs/simulator.html">View Source</a>
+</p>
+
+**What it does:**
+- 🖥️ Renders the exact bird sprite, pipe caps, starfield, particle-explosion death, trophy score screen and wipe-and-spiral title transition from `src/main.cpp` — on an actual `<canvas>`, not a video
+- 🖱️ **Click the OLED**, tap the on-screen **TOUCH** pad, or press `Space` — edge-triggered just like the real TTP223 sensor (hold ≠ spam-flap)
+- 🔊 Synthesizes the real `sfxFlap` / `sfxScore` / `sfxDead` tones with the Web Audio API, mirroring the firmware's I2S sine-wave envelope
+- 💡 GPIO8 (touch) and I2S (audio) indicator LEDs flash live, next to a wiring-reference strip pulled straight from the table below
+- 🎚️ Live physics sliders let you feel what changing `GRAVITY`, `FLAP_V`, `PIPE_GAP_HALF` and `PIPE_SPD` does *before* you touch a single line of C++
+- 💾 Keeps a best score in your browser (the real board resets on power-cycle unless you wire up EEPROM — see [Customization](#customization))
+
+Works great on mobile too — it's a static, dependency-free page, so it's safe to fork and host anywhere (GitHub Pages, `htmlpreview`, or just open the file locally).
 
 ---
 
 ## 📋 Table of Contents
 
+- [Play It In Your Browser](#play-it-in-your-browser)
 - [Features](#features)
 - [Hardware Requirements](#hardware-requirements)
 - [Wiring Diagram](#wiring-diagram)
